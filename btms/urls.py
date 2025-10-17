@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('bank/', include('bank.urls')),  # now works
+    path('admin/', admin.site.urls),   # keeps Django admin
+    path('', include('bank.urls')),    # connect your bank app
 ]
+
