@@ -1,0 +1,7 @@
+<h1>Welcome to BTMS Bank</h1>
+<p>List of customers:</p>
+<ul>
+    {% for customer in customers %}
+        <li>{{ customer.name }} ({{ customer.aadhaar_no }})</li>
+    {% endfor %}
+</ul>
