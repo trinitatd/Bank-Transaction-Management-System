@@ -1,0 +1,30 @@
+{% extends 'bank/base.html' %}
+{% block title %}Pay Loan - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h2>Pay Loan {{ loan_no }}</h2>
+    {% if outstanding %}
+      <p>Outstanding: ₹{{ outstanding }}</p>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="from_account" class="form-label">Withdraw from Account</label>
+        <select id="from_account" name="from_account" class="form-select" required>
+          <option value="">-- choose account --</option>
+          {% for a in accounts %}
+            <option value="{{ a }}">{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="amount" class="form-label">Amount</label>
+        <input id="amount" name="amount" class="form-control" placeholder="{{ outstanding }}" />
+      </div>
+      <button class="btn btn-primary" type="submit">Pay Loan</button>
+      <a class="btn btn-secondary" href="{% url 'dashboard' %}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

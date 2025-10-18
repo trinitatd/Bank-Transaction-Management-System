@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}BTMS{% endblock %}</title>
+    <style>
+        body{font-family: Arial, Helvetica, sans-serif; margin:0; background:#f5f7fb; color:#222}
+        header{background:#1b2845;color:#fff;padding:12px 20px}
+        nav a{color:#cfe8ff;margin-right:12px;text-decoration:none}
+        .container{max-width:1100px;margin:20px auto;padding:0 16px}
+        .card{background:#fff;padding:18px;border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,0.06);margin-bottom:16px}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+        .muted{color:#666;font-size:13px}
+    </style>
+</head>
+<body>
+<header>
+    <div class="container">
+        <strong>BTMS</strong>
+        <nav style="float:right">
+            <a href="{% url 'dashboard' %}">Dashboard</a>
+            <a href="{% url 'customers_list' %}">Customers</a>
+            <a href="{% url 'accounts_list' %}">Accounts</a>
+            <a href="{% url 'transactions_list' %}">Transactions</a>
+            <a href="{% url 'loans_list' %}">Loans</a>
+            <a href="{% url 'logout' %}">Logout</a>
+        </nav>
+    </div>
+</header>
+<div class="container">
+    {% if messages %}
+        <div class="card muted">
+            {% for message in messages %}
+                <div>{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>

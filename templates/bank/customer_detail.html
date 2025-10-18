@@ -1,0 +1,44 @@
+{% extends 'bank/base.html' %}
+{% block title %}{{ customer.name }} - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>{{ customer.name }}</h2>
+    <p class="muted">Aadhaar: {{ customer.aadhaar_no }} | Phone: {{ customer.phone }}</p>
+</div>
+<div class="card">
+    <h3>Accounts</h3>
+    <table>
+        <tr><th>Account No</th><th>Balance</th></tr>
+        {% for a in accounts %}
+            <tr>
+                <td>
+                    {% if a.object %}
+                        <a href="{% url 'account_detail' a.object.account_no %}">{{ a.object.account_no }}</a>
+                    {% else %}
+                        <a href="#">{{ a.account_no }}</a>
+                    {% endif %}
+                </td>
+                <td>₹{% if a.object %}{{ a.object.balance }}{% else %}{{ a.balance }}{% endif %}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="2">No accounts</td></tr>
+        {% endfor %}
+    </table>
+</div>
+<div class="card">
+    <h3>Loans</h3>
+    <ul>
+        {% for l in loans %}
+            <li>
+                {% if l.object %}
+                    {{ l.object.loan.type }} — ₹{{ l.object.loan.amount }} ({{ l.object.role }})
+                {% else %}
+                    {{ l.type }} — ₹{{ l.amount }} ({{ l.role }})
+                {% endif %}
+            </li>
+        {% empty %}
+            <li>No loans</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

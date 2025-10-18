@@ -1,0 +1,57 @@
+{% extends 'bank/base.html' %}
+{% block title %}Transactions - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <h2 class="card-title">Transactions</h2>
+
+        {% if error %}
+            <div class="alert alert-danger">Error loading transactions: {{ error }}</div>
+            {% if error_details %}
+                <pre style="white-space:pre-wrap;background:#f8f8f8;padding:10px;border:1px solid #ddd;margin-top:8px">{{ error_details }}</pre>
+            {% endif %}
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th style="min-width:160px">Date</th>
+                        <th>Account</th>
+                        <th>Customer</th>
+                        <th>Type</th>
+                        <th class="text-end">Amount</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transactions %}
+                        <tr>
+                            <td class="text-muted">{{ t.date_display }}</td>
+                            <td>
+                                {% if t.source == 'orm' %}
+                                    <a href="{% url 'account_detail' t.account_no %}">{{ t.account_no }}</a>
+                                {% else %}
+                                    {{ t.account_no }}
+                                {% endif %}
+                            </td>
+                            <td>{{ t.customer_name }}</td>
+                            <td>{{ t.transaction_type }}</td>
+                            <td class="text-end">₹{{ t.amount_display }}</td>
+                            <td>
+                                {% if t.source == 'orm' %}
+                                    <span class="badge bg-success">ORM</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Legacy</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6">No transactions found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

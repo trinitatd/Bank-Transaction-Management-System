@@ -1,0 +1,17 @@
+{% extends 'bank/base.html' %}
+{% block title %}Customers - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Customers</h2>
+    <table>
+        <tr><th>Name</th><th>Aadhaar</th><th>Phone</th></tr>
+        {% for c in customers %}
+            <tr>
+                <td><a href="{% url 'customer_detail' c.aadhaar_no %}">{{ c.name }}</a></td>
+                <td>{{ c.aadhaar_no }}</td>
+                <td>{{ c.phone }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

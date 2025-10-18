@@ -1,0 +1,33 @@
+{% extends 'bank/base.html' %}
+{% block title %}Create Account - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h2>Create Account</h2>
+
+    {% if error %}
+      <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    {% if message %}
+      <div class="alert alert-success">{{ message }}</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="aadhaar" class="form-label">Aadhaar</label>
+        <input id="aadhaar" name="aadhaar" class="form-control" required />
+      </div>
+      <div class="mb-3">
+        <label for="account_no" class="form-label">Account Number</label>
+        <input id="account_no" name="account_no" class="form-control" required />
+      </div>
+      <div class="mb-3">
+        <label for="initial" class="form-label">Initial Deposit (optional)</label>
+        <input id="initial" name="initial" class="form-control" placeholder="0.00" />
+      </div>
+      <button class="btn btn-primary" type="submit">Create Account</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

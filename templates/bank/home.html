@@ -47,12 +47,30 @@
 <body>
     <div class="login-box">
         <h2>Bank Login</h2>
-        <form method="POST" action="{% url 'dashboard' %}">
+        {% if messages %}
+            <ul style="color: #ffdddd; list-style: none; padding: 0;">
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <form method="POST" action="{% url 'home' %}">
             {% csrf_token %}
-            <input type="text" name="username" placeholder="Username" required>
-            <input type="password" name="password" placeholder="Password" required>
+            <input type="text" name="username" placeholder="Username or Aadhaar" required>
+            <input type="password" name="password" placeholder="Password">
             <button type="submit">Login</button>
         </form>
+
+        <hr style="border-color: rgba(255,255,255,0.15); margin: 18px 0;">
+        <p style="font-size: 14px; opacity: 0.9;">Test customers:</p>
+        <ul style="color: white; padding-left: 18px;">
+            {% for customer in customers %}
+                <li>{{ customer.name }} — {{ customer.aadhaar_no }}</li>
+            {% empty %}
+                <li>No customers found. Add some via admin.</li>
+            {% endfor %}
+        </ul>
     </div>
 </body>
 </html>

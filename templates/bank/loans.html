@@ -1,0 +1,20 @@
+{% extends 'bank/base.html' %}
+{% block title %}Loans - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Loans</h2>
+    <table>
+        <tr><th>Loan No</th><th>Type</th><th>Amount</th><th>Branch</th></tr>
+        {% for l in loans %}
+            <tr>
+                <td><a href="{% url 'loan_detail' l.loan_no %}">{{ l.loan_no }}</a></td>
+                <td>{{ l.type }}</td>
+                <td>₹{{ l.amount }}</td>
+                <td>{{ l.branch_number }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No loans</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

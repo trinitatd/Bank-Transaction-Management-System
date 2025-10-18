@@ -1,0 +1,25 @@
+{% extends 'bank/base.html' %}
+{% block title %}Close Account - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h2>Close Account {{ account_no }}</h2>
+    <p>Closing this account will mark it as closed. If the account has a positive balance you must choose a target account to transfer the remaining funds into.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="transfer_to" class="form-label">Transfer remaining balance to (optional)</label>
+        <select id="transfer_to" name="transfer_to" class="form-select">
+          <option value="">-- Leave empty to require zero balance --</option>
+          {% for a in accounts %}
+            <option value="{{ a }}">{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-danger" type="submit">Confirm Close Account</button>
+      <a class="btn btn-secondary" href="{% url 'dashboard' %}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

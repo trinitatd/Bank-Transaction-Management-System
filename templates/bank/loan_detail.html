@@ -1,0 +1,18 @@
+{% extends 'bank/base.html' %}
+{% block title %}Loan {{ loan.loan_no }} - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Loan {{ loan.loan_no }}</h2>
+    <p class="muted">Type: {{ loan.type }} | Amount: ₹{{ loan.amount }}</p>
+</div>
+<div class="card">
+    <h3>Customers on this loan</h3>
+    <ul>
+        {% for cl in customers %}
+            <li>{{ cl.customer.name }} ({{ cl.role }})</li>
+        {% empty %}
+            <li>No customers</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

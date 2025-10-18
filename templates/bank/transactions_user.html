@@ -1,0 +1,129 @@
+{% extends 'bank/base.html' %}
+{% load static %}
+
+{% block content %}
+<h2>Transactions for {{ customer.name }}</h2>
+
+<h3>Accounts</h3>
+<ul>
+  {% for acc in accounts %}
+    <li>
+      {% if acc.object %}
+        {{ acc.object.account_no }} — Balance: {{ acc.object.balance }}
+      {% else %}
+        {{ acc.account_no }} — Balance: {{ acc.balance }}
+      {% endif %}
+    </li>
+  {% empty %}
+    <li>No accounts found.</li>
+  {% endfor %}
+</ul>
+
+<h3>Make a transaction</h3>
+<form method="post" action="{% url 'perform_transaction' %}">
+  {% csrf_token %}
+  <div>
+    <label for="type">Type</label>
+    <select name="type" id="type">
+      <option value="DEPOSIT">Deposit</option>
+      <option value="WITHDRAW">Withdraw</option>
+      <option value="TRANSFER">Transfer</option>
+    </select>
+  </div>
+
+  <div>
+    <label for="from_account">From account (for withdraw/transfer)</label>
+    <select name="from_account" id="from_account">
+      <option value="">-- select --</option>
+      {% for acc in accounts %}
+        {% if acc.object %}
+          <option value="{{ acc.object.account_no }}">{{ acc.object.account_no }} (Balance: {{ acc.object.balance }})</option>
+        {% else %}
+          <option value="{{ acc.account_no }}">{{ acc.account_no }} (Balance: {{ acc.balance }})</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label for="to_account">To account (for deposit/transfer)</label>
+    <select name="to_account" id="to_account">
+      <option value="">-- select --</option>
+      {% for acc in accounts %}
+        {% if acc.object %}
+          <option value="{{ acc.object.account_no }}">{{ acc.object.account_no }} (Balance: {{ acc.object.balance }})</option>
+        {% else %}
+          <option value="{{ acc.account_no }}">{{ acc.account_no }} (Balance: {{ acc.balance }})</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label for="amount">Amount</label>
+    <input type="number" step="0.01" name="amount" id="amount" required />
+  </div>
+
+  <div>
+    <button type="submit">Submit</button>
+  </div>
+</form>
+
+<script>
+  // Simple UI: when 'TRANSFER' is selected, ensure to_account list excludes the selected from_account
+  const typeEl = document.getElementById('type');
+  const fromEl = document.getElementById('from_account');
+  const toEl = document.getElementById('to_account');
+
+  function filterToOptions() {
+    const fromVal = fromEl.value;
+    for (let i=0;i<toEl.options.length;i++){
+      const opt = toEl.options[i];
+      if (opt.value === '') continue;
+      if (typeEl.value === 'TRANSFER') {
+        opt.disabled = (opt.value === fromVal);
+      } else {
+        opt.disabled = false;
+      }
+    }
+  }
+
+  typeEl.addEventListener('change', filterToOptions);
+  fromEl.addEventListener('change', filterToOptions);
+  // initial
+  filterToOptions();
+</script>
+
+<h3>Recent transactions</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Account</th>
+      <th>Type</th>
+      <th>Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in transactions %}
+      <tr>
+        <td>{{ t.date }}</td>
+        <td>
+          {% if t.account %}
+            {{ t.account.account_no }}
+          {% elif t.account_no %}
+            {{ t.account_no }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>{% if t.transaction_type %}{{ t.transaction_type }}{% else %}{{ t.type }}{% endif %}</td>
+        <td>{{ t.amount }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4">No transactions yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

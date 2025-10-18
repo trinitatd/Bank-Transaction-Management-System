@@ -1,0 +1,15 @@
+{% extends 'bank/base.html' %}
+{% block title %}Login - BTMS{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px;margin:30px auto">
+    <h2>Sign in</h2>
+    <form method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+        <div style="margin-bottom:8px"><input name="username" placeholder="Username or Aadhaar" style="width:100%;padding:8px"></div>
+        <div style="margin-bottom:8px"><input name="password" type="password" placeholder="Password" style="width:100%;padding:8px"></div>
+        <button style="padding:10px 14px">Login</button>
+    </form>
+    <hr>
+    <p class="muted">If you don't have an account, you may <a href="{% url 'create_account' %}">create one</a> (requires Aadhaar present in system).</p>
+</div>
+{% endblock %}

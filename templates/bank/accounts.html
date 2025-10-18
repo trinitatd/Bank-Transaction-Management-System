@@ -1,0 +1,19 @@
+{% extends 'bank/base.html' %}
+{% block title %}Accounts - BTMS{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Accounts</h2>
+    <table>
+        <tr><th>Account No</th><th>Customer</th><th>Balance</th></tr>
+        {% for a in accounts %}
+            <tr>
+                <td><a href="{% url 'account_detail' a.account_no %}">{{ a.account_no }}</a></td>
+                <td>{{ a.customer.name }}</td>
+                <td>₹{{ a.balance }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="3">No accounts</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
