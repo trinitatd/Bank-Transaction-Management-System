@@ -1,22 +1,28 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
-from django.contrib.auth import logout, authenticate, login as auth_login
 from django.db.models import Sum
 from django.db import connection
 from django.db.utils import DatabaseError
 from django.conf import settings
 from django.utils import timezone
 import datetime
+from django.contrib.auth.hashers import make_password
+
+from .services import sp_create_account
+from .services import sp_perform_transaction
+from .services import sp_close_account
+from .services import sp_pay_loan
+from .services import sp_reconcile_account
 
 from .models import Customer, Account, Transaction, Loans, CustomerLoans
+from django.contrib.auth.hashers import check_password
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login as auth_login
 
 
 def login_view(request):
-    """Login page: supports Django auth users or legacy Customer credentials.
-
-    On success sets request.session['aadhaar_no'] and redirects to dashboard.
-    """
+    """Login page: supports Django User authentication."""
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -25,128 +31,25 @@ def login_view(request):
             messages.error(request, 'Please enter both username and password.')
             return redirect('login')
 
-        # Try Django authentication
         user = authenticate(request, username=username, password=password)
-        # Debug logging to console when in DEBUG mode
-        if settings.DEBUG:
-            try:
-                from django.contrib.auth.models import User as _User
-                _u = _User.objects.filter(username=username).first()
-                print('\n[login debug] attempt username=', username)
-                print('[login debug] user exists=', bool(_u))
-                if _u:
-                    print('[login debug] user.check_password=', _u.check_password(password))
-                    print('[login debug] user.id=', _u.id)
-            except Exception as _e:
-                print('[login debug] error checking user:', _e)
         if user:
             auth_login(request, user)
-            # try to associate a Customer
-            # 1) Prefer legacy mapping from customer_login table (maps username -> aadhaar_no)
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT aadhaar_no FROM customer_login WHERE username=%s LIMIT 1", [username])
-                    row = cursor.fetchone()
-                    if row and row[0]:
-                        aad = row[0]
-                        # ensure Customer exists in bank_customer table (create a minimal one if not)
-                        customer = Customer.objects.filter(aadhaar_no=aad).first()
-                        if not customer:
-                            # try to pull name/phone from legacy customer table
-                            cname = username
-                            cphone = ''
-                            try:
-                                cursor.execute("SELECT name, phone FROM customer WHERE aadhaar_no=%s LIMIT 1", [aad])
-                                crow = cursor.fetchone()
-                                if crow:
-                                    cname = crow[0] or cname
-                                    cphone = crow[1] or ''
-                            except Exception:
-                                pass
-                            try:
-                                customer = Customer(aadhaar_no=aad, name=cname, phone=cphone)
-                                customer.save()
-                            except Exception:
-                                customer = None
-                        if customer:
-                            request.session['aadhaar_no'] = customer.aadhaar_no
-                            return redirect('dashboard')
-            except Exception:
-                # legacy lookup failed; proceed to other heuristics
-                pass
 
-            # 2) Try to find a Customer by username (name or aadhaar)
-            customer = Customer.objects.filter(name=username).first() or Customer.objects.filter(aadhaar_no=username).first()
-            if customer:
-                request.session['aadhaar_no'] = customer.aadhaar_no
-                return redirect('dashboard')
-
-            # 3) Auto-create a minimal Customer record mapped to this Django user so login proceeds.
-            # Generate a stable aadhaar_no using the user id to avoid collisions and meet the 12-char limit.
-            try:
-                generated_aad = f'U{user.id:011d}'
-                customer = Customer(aadhaar_no=generated_aad[:12], name=username, phone='')
+            # Link Customer profile
+            customer = Customer.objects.filter(user=user).first()
+            if not customer:
+                # Create minimal Customer if missing
+                customer = Customer(aadhaar_no=username, name=username, phone='', user=user)
                 customer.save()
-                request.session['aadhaar_no'] = customer.aadhaar_no
-                messages.success(request, 'Profile created automatically for your account.')
-                return redirect('dashboard')
-            except Exception:
-                messages.info(request, 'Logged in but no customer profile found; please contact admin.')
-                return redirect('login')
 
-        # Fallback: check Customer table for legacy credentials
-        customer = Customer.objects.filter(name=username).first() or Customer.objects.filter(aadhaar_no=username).first()
-        # First try: if Customer model has password attribute (rare)
-        if customer and hasattr(customer, 'password') and customer.password:
-            if customer.password == password:
-                request.session['aadhaar_no'] = customer.aadhaar_no
-                messages.success(request, f'Welcome {customer.name}!')
-                return redirect('dashboard')
-            else:
-                messages.error(request, 'Invalid credentials.')
-                return redirect('login')
+            request.session['aadhaar_no'] = customer.aadhaar_no
+            messages.success(request, f'Welcome {customer.name}!')
+            return redirect('dashboard')
+        else:
+            messages.error(request, 'Invalid credentials.')
+            return redirect('login')
 
-        # Second try: use raw SQL to read a password column from the underlying table
-        # This helps when the database has a password column but the Django model doesn't
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT password FROM bank_customer WHERE name=%s OR aadhaar_no=%s LIMIT 1",
-                    [username, username],
-                )
-                row = cursor.fetchone()
-                if row and row[0]:
-                    db_password = row[0]
-                    # plaintext comparison (if your DB stores hashes, this won't match)
-                    if db_password == password:
-                        # set session using earlier found customer if present, or fetch aadhaar
-                        if not customer:
-                            cursor.execute(
-                                "SELECT aadhaar_no FROM bank_customer WHERE name=%s OR aadhaar_no=%s LIMIT 1",
-                                [username, username],
-                            )
-                            aad = cursor.fetchone()
-                            if aad:
-                                request.session['aadhaar_no'] = aad[0]
-                                messages.success(request, 'Welcome!')
-                                return redirect('dashboard')
-                        else:
-                            request.session['aadhaar_no'] = customer.aadhaar_no
-                            messages.success(request, f'Welcome {customer.name}!')
-                            return redirect('dashboard')
-                    else:
-                        messages.error(request, 'Invalid credentials.')
-                        return redirect('login')
-        except Exception:
-            # ignore DB errors for raw fallback but log message
-            messages.debug(request, 'Raw password lookup unavailable or failed.')
-
-        messages.error(request, 'Invalid credentials or user not found.')
-        return redirect('login')
-
-    # GET
-    return render(request, 'bank/login.html', {})
-
+    return render(request, 'bank/login.html')
 
 def logout_view(request):
     request.session.pop('aadhaar_no', None)
@@ -406,47 +309,65 @@ def transactions_list(request):
 
     return render(request, 'bank/transactions.html', {'transactions': transactions_out})
 
-
 def create_account(request):
-    """Create account page: GET shows a small form; POST calls stored procedure sp_create_account."""
+    """Create a new account using stored procedure and Django User auth."""
     message = None
     error = None
+
     if request.method == 'POST':
         aadhaar = request.POST.get('aadhaar')
         account_no = request.POST.get('account_no')
         initial = request.POST.get('initial') or '0'
-        created_by = request.user.username if request.user.is_authenticated else request.POST.get('created_by') or 'web'
+        password = request.POST.get('password')
+        created_by = request.POST.get('created_by', 'System')
 
         try:
-            with connection.cursor() as cursor:
-                # Call the stored procedure
-                cursor.callproc('sp_create_account', [aadhaar, account_no, initial, created_by])
-                # consume result sets if any
-                try:
-                    while cursor.nextset():
-                        pass
-                except Exception:
-                    pass
-            message = 'Account created successfully.'
-            return render(request, 'bank/create_account.html', {'message': message})
-        except DatabaseError as db_err:
-            # Extract message if possible
-            error = str(db_err)
+            # Call stored procedure to create account
+            sp_create_account(aadhaar, account_no, float(initial), created_by)
+
+            # Ensure Customer exists
+            customer, created = Customer.objects.get_or_create(aadhaar_no=aadhaar)
+            if password:
+                # Create Django User if not exists
+                user, user_created = User.objects.get_or_create(username=aadhaar)
+                if user_created:
+                    user.set_password(password)
+                    user.save()
+                customer.user = user
+                customer.save()
+
+            message = f"Account {account_no} created successfully!"
         except Exception as e:
             error = str(e)
 
-    return render(request, 'bank/create_account.html', {'error': error, 'message': message})
+    return render(request, 'bank/create_account.html', {'message': message, 'error': error})  
 
 
 def close_account(request, account_no):
-    """Close an account after optional transfer of remaining balance.
+    """Close an account: GET shows form, POST calls sp_close_account."""
+    message = None
+    error = None
 
-    GET: show confirmation form (choose transfer target if balance > 0).
-    POST: call sp_close_account(account_no, transfer_to, by)
-    """
-    aadhaar_no = request.session.get('aadhaar_no')
-    if not aadhaar_no:
-        return redirect('login')
+    # Get all other open accounts for transfer options
+    accounts = Account.objects.filter(is_closed=False).exclude(account_no=account_no).values_list('account_no', flat=True)
+
+    if request.method == 'POST':
+        transfer_to = request.POST.get('transfer_to')
+        closed_by = request.user.username if request.user.is_authenticated else 'admin'
+
+        result = sp_close_account(account_no, transfer_to, closed_by)
+
+        if result['success']:
+            message = result['message']
+        else:
+            error = result['message']
+
+    return render(request, 'bank/close_account.html', {
+        'account_no': account_no,
+        'accounts': accounts,
+        'message': message,
+        'error': error
+    })
 
     # check ownership (ORM or legacy mapping)
     def is_owned(a_no, aad):
@@ -601,21 +522,15 @@ def reconcile_account(request, account_no):
     if not aadhaar_no:
         return redirect('login')
 
-    # ensure user owns account
-    owned = False
-    try:
-        if Account.objects.filter(account_no=account_no, customer__aadhaar_no=aadhaar_no).exists():
-            owned = True
-    except Exception:
-        pass
+    # Verify ownership
+    owned = Account.objects.filter(account_no=account_no, customer__aadhaar_no=aadhaar_no).exists()
     if not owned:
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1 FROM customer_account WHERE aadhaar_no=%s AND account_no=%s LIMIT 1", [aadhaar_no, account_no])
-                if cursor.fetchone():
-                    owned = True
-        except Exception:
-            owned = False
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM customer_account WHERE aadhaar_no=%s AND account_no=%s LIMIT 1",
+                [aadhaar_no, account_no]
+            )
+            owned = bool(cursor.fetchone())
 
     if not owned:
         messages.error(request, 'You do not own this account.')
@@ -625,36 +540,30 @@ def reconcile_account(request, account_no):
     if request.method == 'POST':
         fix_flag = 1 if request.POST.get('fix') == '1' else 0
         try:
+            result = reconcile_account_service(account_no, fix_flag)
+
+            # fetch last audit if available
             with connection.cursor() as cursor:
-                cursor.callproc('sp_reconcile_account', [account_no, fix_flag])
-                # fetch the returned select result from the procedure
-                rows = []
-                try:
-                    # some drivers return the result as a resultset, fetch it
-                    r = cursor.fetchall()
-                    rows = r
-                except Exception:
-                    # try to read nextset
-                    try:
-                        while cursor.nextset():
-                            pass
-                    except Exception:
-                        pass
-            # Try to query reconciliation_audit for latest entry
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT old_balance, new_balance, created_at FROM reconciliation_audit WHERE account_id = (SELECT id FROM bank_account WHERE account_no=%s LIMIT 1) ORDER BY created_at DESC LIMIT 1", [account_no])
-                    ra = cursor.fetchone()
-                    result = {'audit': ra}
-            except Exception:
-                result = None
-            messages.success(request, 'Reconciliation performed.')
+                cursor.execute("""
+                    SELECT old_balance, new_balance, created_at 
+                    FROM reconciliation_audit 
+                    WHERE account_id = (SELECT id FROM bank_account WHERE account_no=%s LIMIT 1)
+                    ORDER BY created_at DESC LIMIT 1
+                """, [account_no])
+                audit = cursor.fetchone()
+                if audit:
+                    result['audit'] = {
+                        'old_balance': audit[0],
+                        'new_balance': audit[1],
+                        'created_at': audit[2]
+                    }
+
+            messages.success(request, 'Reconciliation performed successfully.')
         except DatabaseError as db_err:
-            messages.error(request, f'Reconcile failed: {db_err}')
+            messages.error(request, f'Reconciliation failed: {db_err}')
             return redirect('dashboard')
 
     return render(request, 'bank/reconcile_account.html', {'account_no': account_no, 'result': result})
-
 
 def loans_list(request):
     loans = Loans.objects.select_related('branch_number').all().order_by('-amount')

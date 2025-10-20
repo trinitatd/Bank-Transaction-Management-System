@@ -4,22 +4,151 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}BTMS{% endblock %}</title>
+    
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
     <style>
-        body{font-family: Arial, Helvetica, sans-serif; margin:0; background:#f5f7fb; color:#222}
-        header{background:#1b2845;color:#fff;padding:12px 20px}
-        nav a{color:#cfe8ff;margin-right:12px;text-decoration:none}
-        .container{max-width:1100px;margin:20px auto;padding:0 16px}
-        .card{background:#fff;padding:18px;border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,0.06);margin-bottom:16px}
-        table{width:100%;border-collapse:collapse}
-        th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
-        .muted{color:#666;font-size:13px}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: #f4f6f8;
+            color: #222;
+            line-height: 1.6;
+        }
+
+        /* === NAVBAR === */
+        header {
+            background: linear-gradient(90deg, #0077b6, #0096c7);
+            color: #fff;
+            padding: 14px 30px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+        }
+
+        header .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        header strong {
+            font-size: 22px;
+            letter-spacing: 1px;
+        }
+
+        nav a {
+            color: #e3f6ff;
+            margin-left: 22px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.3s ease;
+        }
+
+        nav a:hover {
+            color: #ffffff;
+            text-shadow: 0 0 6px rgba(255,255,255,0.6);
+        }
+
+        /* === CONTAINER === */
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 18px;
+        }
+
+        /* === CARD === */
+        .card {
+            background: #fff;
+            padding: 22px;
+            border-radius: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+        }
+
+        /* === TABLE === */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        th {
+            background-color: #e9f8ff;
+            color: #0077b6;
+            font-weight: 600;
+        }
+
+        .muted {
+            color: #666;
+            font-size: 13px;
+        }
+
+        /* === BUTTONS === */
+        a.btn {
+            display: inline-block;
+            background: linear-gradient(90deg, #00b4d8, #0077a3);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+
+        a.btn:hover {
+            background: linear-gradient(90deg, #0077a3, #00b4d8);
+        }
+
+        /* === FOOTER === */
+        footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            color: #777;
+            font-size: 13px;
+            background-color: #f4f6f8;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            nav {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            nav a {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
+
 <body>
+
 <header>
     <div class="container">
         <strong>BTMS</strong>
-        <nav style="float:right">
+        <nav>
             <a href="{% url 'dashboard' %}">Dashboard</a>
             <a href="{% url 'customers_list' %}">Customers</a>
             <a href="{% url 'accounts_list' %}">Accounts</a>
@@ -29,6 +158,7 @@
         </nav>
     </div>
 </header>
+
 <div class="container">
     {% if messages %}
         <div class="card muted">
@@ -37,7 +167,13 @@
             {% endfor %}
         </div>
     {% endif %}
+
     {% block content %}{% endblock %}
 </div>
+
+<footer>
+    © 2025 BTMS — Secure Banking System
+</footer>
+
 </body>
 </html>

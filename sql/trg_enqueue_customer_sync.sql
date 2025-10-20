@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS customer_sync_queue (
 
 DELIMITER $$
 DROP TRIGGER IF EXISTS trg_enqueue_customer_sync$$
-CREATE TRIGGER trg_enqueue_customer_sync AFTER INSERT ON customer
+CREATE TRIGGER trg_enqueue_customer_sync AFTER INSERT ON bank_customer
 FOR EACH ROW
 BEGIN
     INSERT INTO customer_sync_queue (aadhaar_no, created_at, processed) VALUES (NEW.aadhaar_no, NOW(), 0);

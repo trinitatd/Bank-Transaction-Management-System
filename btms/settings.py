@@ -15,7 +15,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'btms',       # your database name
         'USER': 'root',       # your MySQL username
-        'PASSWORD': 'TrinitaTD@2006',       # your MySQL password
+        'PASSWORD': 'root',       # your MySQL password
         'HOST': 'localhost',
         'PORT': '3306',
     }
@@ -60,5 +60,15 @@ TEMPLATES = [
 ]
 
 ROOT_URLCONF = 'btms.urls'
+
+from django.contrib.messages import constants as messages
+
+MESSAGE_TAGS = {
+    messages.DEBUG: 'secondary',
+    messages.INFO: 'info',
+    messages.SUCCESS: 'success',
+    messages.WARNING: 'warning',
+    messages.ERROR: 'danger',
+}
 
 
