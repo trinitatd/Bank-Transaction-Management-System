@@ -17,10 +17,14 @@ urlpatterns = [
     # transactions
     path('transactions/', views.transactions_list, name='transactions_list'),
     path('create-account/', views.create_account, name='create_account'),
+    
+    # updated: use correct view function
     path('accounts/<str:account_no>/close/', views.close_account, name='close_account'),
+
     path('loans/<str:loan_no>/pay/', views.pay_loan, name='pay_loan'),
     path('accounts/<str:account_no>/reconcile/', views.reconcile_account, name='reconcile_account'),
-    # per-user transaction page (show history + deposit/withdraw form that uses stored procedure)
+
+    # per-user transaction page
     path('my-transactions/', views.my_transactions, name='my_transactions'),
     path('my-transactions/perform/', views.perform_transaction, name='perform_transaction'),
 

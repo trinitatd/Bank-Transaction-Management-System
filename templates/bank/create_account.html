@@ -10,7 +10,6 @@
     <div class="card-body">
       <h2 class="text-center mb-5 fw-bold" style="color:#0d6efd;">Create Account</h2>
 
-      <!-- ✅ Success / Error Messages -->
       {% if message %}
         <div class="alert alert-success text-center fw-semibold" role="alert" style="border-radius: 12px;">
           {{ message }}
@@ -27,9 +26,21 @@
         </div>
       {% endif %}
 
-      <!-- ✅ Form -->
       <form method="post" novalidate>
         {% csrf_token %}
+
+        <div class="mb-4">
+          <label for="name" class="form-label fw-semibold">Full Name</label>
+          <input id="name" name="name" class="form-control form-control-lg"
+                 required placeholder="Enter your full name"
+                 style="height: 60px; font-size: 1.1rem; border-radius: 14px;">
+        </div>
+
+        <div class="mb-4">
+          <label for="dob" class="form-label fw-semibold">Date of Birth</label>
+          <input id="dob" name="dob" type="date" class="form-control form-control-lg"
+                 required style="height: 60px; font-size: 1.1rem; border-radius: 14px;">
+        </div>
 
         <div class="mb-4">
           <label for="aadhaar_no" class="form-label fw-semibold">Aadhaar Number</label>
@@ -39,17 +50,17 @@
         </div>
 
         <div class="mb-4">
-          <label for="username" class="form-label fw-semibold">Username</label>
-          <input id="username" name="username" class="form-control form-control-lg"
-                 required placeholder="Create a username"
+          <label for="phone" class="form-label fw-semibold">Phone Number</label>
+          <input id="phone" name="phone" class="form-control form-control-lg"
+                 required placeholder="Enter your phone number"
                  style="height: 60px; font-size: 1.1rem; border-radius: 14px;">
         </div>
 
-        <div class="mb-5">
-          <label for="password" class="form-label fw-semibold">Password</label>
-          <input id="password" name="password" type="password" class="form-control form-control-lg"
-                 required placeholder="Enter a strong password"
-                 style="height: 60px; font-size: 1.1rem; border-radius: 14px;">
+        <div class="mb-4">
+          <label for="address" class="form-label fw-semibold">Address</label>
+          <textarea id="address" name="address" class="form-control form-control-lg"
+                    required placeholder="Enter your address"
+                    style="height: 80px; font-size: 1.1rem; border-radius: 14px;"></textarea>
         </div>
 
         <div class="d-grid mb-4">

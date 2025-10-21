@@ -1,15 +1,22 @@
 {% extends 'bank/base.html' %}
 {% block title %}Dashboard - BTMS{% endblock %}
 {% block content %}
-<div class="card">
-    <h2>Welcome, {{ customer.name }}</h2>
-    <p class="muted">Aadhaar: {{ customer.aadhaar_no }} | Phone: {{ customer_phone|default:customer.phone }}</p>
+
+{% if request.session.is_admin %}
+  <div class="card">
+    <h2>Welcome Admin {{ request.session.customer_name }}</h2>
+    <p class="muted">Logged in as admin account: {{ request.session.account_no }}</p>
+
+   
+  </div>
+{% else %}
+  <div class="card">
+    <h2>Welcome, {{ request.session.customer_name }}</h2>
+    <p class="muted">Account: {{ request.session.account_no }}</p>
 
     <div style="display:flex;gap:12px;margin-top:12px">
         <div style="flex:1" class="card">
-            <h4>Total Balance</h4>
-            <div style="font-size:22px">₹{{ total_balance }}</div>
-            <div class="muted">Accounts: {{ accounts|length }}</div>
+            
 
             <div style="margin-top:8px">
                 <strong>Accounts</strong>
@@ -56,10 +63,9 @@
             </table>
         </div>
     </div>
-</div>
+  </div>
 
-<!-- ✅ Fixed Loans section -->
-<div class="card" style="margin-top:20px">
+  <div class="card" style="margin-top:20px">
     <h3>Loans</h3>
     <ul>
         {% for cl in customer_loans %}
@@ -75,6 +81,7 @@
             <li>No loans</li>
         {% endfor %}
     </ul>
-</div>
-{% endblock %}
+  </div>
+{% endif %}
 
+{% endblock %}

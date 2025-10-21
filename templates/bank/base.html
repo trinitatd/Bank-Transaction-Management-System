@@ -149,12 +149,23 @@
     <div class="container">
         <strong>BTMS</strong>
         <nav>
+            <!-- Always visible -->
             <a href="{% url 'dashboard' %}">Dashboard</a>
-            <a href="{% url 'customers_list' %}">Customers</a>
-            <a href="{% url 'accounts_list' %}">Accounts</a>
-            <a href="{% url 'transactions_list' %}">Transactions</a>
-            <a href="{% url 'loans_list' %}">Loans</a>
-            <a href="{% url 'logout' %}">Logout</a>
+
+            <!-- Visible only to admins -->
+            {% if request.session.is_admin %}
+                <a href="{% url 'customers_list' %}">Customers</a>
+                <a href="{% url 'accounts_list' %}">Accounts</a>
+                <a href="{% url 'transactions_list' %}">Transactions</a>
+                <a href="{% url 'loans_list' %}">Loans</a>
+            {% endif %}
+
+            <!-- Login / Logout toggle -->
+            {% if request.session.account_no %}
+                <a href="{% url 'logout' %}">Logout</a>
+            {% else %}
+                <a href="{% url 'login' %}">Login</a>
+            {% endif %}
         </nav>
     </div>
 </header>

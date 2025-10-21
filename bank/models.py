@@ -22,20 +22,29 @@ class BankBranch(models.Model):
 class Customer(models.Model):
     aadhaar_no = models.CharField(max_length=12, primary_key=True)
     name = models.CharField(max_length=100)
+    dob = models.DateField(null=True, blank=True)      # Add DOB
     phone = models.CharField(max_length=15)
-    
+    address = models.TextField(null=True, blank=True)  # Add Address
 
     # Optionally link to Django User for authentication
     user = models.OneToOneField(User, null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.name
-
+       
 # Account model
+import random
+
 class Account(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    account_no = models.CharField(max_length=20, unique=True)
-    balance = models.DecimalField(max_digits=12, decimal_places=2)
+    account_no = models.CharField(max_length=20, unique=True, editable=False)
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+
+    def save(self, *args, **kwargs):
+        if not self.account_no:
+            # Generate unique account number like AC + 6 digits
+            self.account_no = 'AC' + str(random.randint(100000, 999999))
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.account_no

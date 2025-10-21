@@ -18,43 +18,66 @@ from .services import sp_reconcile_account
 from .models import Customer, Account, Transaction, Loans, CustomerLoans
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login as auth_login
+from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 
 
 def login_view(request):
-    """Login page: supports Django User authentication."""
+    """Login using only account number (admin or customer)."""
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        account_no = request.POST.get('account_no')
 
-        if not username or not password:
-            messages.error(request, 'Please enter both username and password.')
+        if not account_no:
+            messages.error(request, 'Please enter your account number.')
             return redirect('login')
 
-        user = authenticate(request, username=username, password=password)
-        if user:
-            auth_login(request, user)
+        # ✅ Define admin account numbers (you can expand this list)
+        ADMIN_ACCOUNTS = ['AC000', 'AC1234']
 
-            # Link Customer profile
-            customer = Customer.objects.filter(user=user).first()
-            if not customer:
-                # Create minimal Customer if missing
-                customer = Customer(aadhaar_no=username, name=username, phone='', user=user)
-                customer.save()
-
-            request.session['aadhaar_no'] = customer.aadhaar_no
-            messages.success(request, f'Welcome {customer.name}!')
+        # If this is an admin login, handle it first (allow even if no Account row exists)
+        if account_no in ADMIN_ACCOUNTS:
+            pwd = request.POST.get('password', '')
+            if pwd != 'admin123':
+                messages.error(request, 'Invalid admin password.')
+                return redirect('login')
+            # set minimal session for admin
+            request.session['account_no'] = account_no
+            request.session['customer_name'] = 'Admin'
+            request.session['is_admin'] = True
+            messages.success(request, f'Welcome Admin!')
             return redirect('dashboard')
-        else:
-            messages.error(request, 'Invalid credentials.')
+
+        try:
+            account = Account.objects.get(account_no=account_no)
+
+            # Store session info
+            request.session['account_no'] = account.account_no
+            request.session['customer_name'] = account.customer.name
+            # Also store owner's Aadhaar so other views that expect aadhaar can work
+            try:
+                request.session['aadhaar_no'] = account.customer.aadhaar_no
+            except Exception:
+                # customer may not have aadhaar_no in legacy schema
+                pass
+
+            request.session['is_admin'] = False
+            messages.success(request, f'Welcome {account.customer.name}!')
+
+            return redirect('dashboard')
+
+        except Account.DoesNotExist:
+            messages.error(request, 'Invalid account number.')
             return redirect('login')
 
     return render(request, 'bank/login.html')
 
 def logout_view(request):
+    # clear session keys
     request.session.pop('aadhaar_no', None)
+    request.session.pop('account_no', None)
+    request.session.pop('customer_name', None)
+    request.session.pop('is_admin', None)
     try:
-        logout(request)
+        auth_logout(request)
     except Exception:
         pass
     messages.info(request, 'You have been logged out.')
@@ -62,95 +85,51 @@ def logout_view(request):
 
 
 def dashboard(request):
-    aadhaar_no = request.session.get('aadhaar_no')
-    if not aadhaar_no:
+    account_no = request.session.get('account_no')
+    if not account_no:
         return redirect('login')
-    customer = get_object_or_404(Customer, aadhaar_no=aadhaar_no)
 
-    # resolve phone: prefer Customer.phone, else fallback to legacy `customer` table
+    # Get customer from account
+    try:
+        account = Account.objects.get(account_no=account_no)
+        customer = account.customer
+    except Account.DoesNotExist:
+        return redirect('login')
+
+    # Phone
     customer_phone = customer.phone if getattr(customer, 'phone', None) else None
-    if not customer_phone:
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT phone FROM customer WHERE aadhaar_no=%s LIMIT 1", [aadhaar_no])
-                row = cursor.fetchone()
-                if row and row[0]:
-                    customer_phone = row[0]
-        except Exception:
-            customer_phone = None
 
-    # helper functions to fetch data from either bank app tables or legacy tables
-    def fetch_accounts(aad):
-        # gather both modern ORM accounts and legacy mapped accounts
+    # Helper functions
+    def fetch_accounts(cust):
         out = []
         try:
-            accounts_qs = Account.objects.filter(customer__aadhaar_no=aad)
+            accounts_qs = Account.objects.filter(customer=cust)
             for a in accounts_qs:
                 out.append({'account_no': a.account_no, 'balance': a.balance})
         except Exception:
             pass
-
-        # always try to include legacy accounts too (avoid duplicates)
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT ca.account_no, a.balance FROM customer_account ca JOIN account a ON ca.account_no = a.account_no WHERE ca.aadhaar_no = %s",
-                    [aad],
-                )
-                for r in cursor.fetchall():
-                    if r and r[0] and not any(x['account_no'] == r[0] for x in out):
-                        out.append({'account_no': r[0], 'balance': r[1]})
-        except Exception:
-            pass
-
         return out
 
-    def fetch_transactions(aad):
-        # first try bank.Transaction via bank_account mapping
+    def fetch_transactions(cust):
         txns = []
         try:
-            tx_qs = Transaction.objects.filter(account__customer__aadhaar_no=aad).order_by('-date')[:20]
-            if tx_qs.exists():
-                for t in tx_qs:
-                    txns.append({'date': t.date, 'account_no': t.account.account_no, 'transaction_type': t.transaction_type, 'amount': t.amount})
-                return txns
+            tx_qs = Transaction.objects.filter(account__customer=cust).order_by('-date')[:20]
+            for t in tx_qs:
+                txns.append({'date': t.date, 'account_no': t.account.account_no, 'transaction_type': t.transaction_type, 'amount': t.amount})
         except Exception:
             pass
-
-        # fallback to legacy transactions table
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT transaction_id, account_no, amount, type, date FROM transactions WHERE account_no IN (SELECT account_no FROM customer_account WHERE aadhaar_no=%s) ORDER BY date DESC LIMIT 20",
-                [aad],
-            )
-            rows = cursor.fetchall()
-            for r in rows:
-                txns.append({'date': r[4], 'account_no': r[1], 'transaction_type': r[3], 'amount': r[2]})
         return txns
 
-    def fetch_loans(aad):
-        # prefer bank.CustomerLoans model
-        cls = CustomerLoans.objects.filter(customer__aadhaar_no=aad).select_related('loan')
+    def fetch_loans(cust):
+        cls = CustomerLoans.objects.filter(customer=cust).select_related('loan')
         if cls.exists():
             return [{'loan_no': c.loan.loan_no, 'type': c.loan.type, 'amount': c.loan.amount, 'role': c.role} for c in cls]
+        return []
 
-        # fallback to legacy customer_loans or loans table
-        loans_out = []
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT l.loan_no, l.type, l.amount, cl.role FROM customer_loans cl JOIN loans l ON cl.loan_no = l.loan_no WHERE cl.aadhaar_no = %s",
-                [aad],
-            )
-            rows = cursor.fetchall()
-            for r in rows:
-                loans_out.append({'loan_no': r[0], 'type': r[1], 'amount': r[2], 'role': r[3]})
-        return loans_out
-
-    accounts = fetch_accounts(aadhaar_no)
+    accounts = fetch_accounts(customer)
     total_balance = sum([float(a['balance']) for a in accounts]) if accounts else 0
-
-    recent_transactions = fetch_transactions(aadhaar_no)
-    customer_loans = fetch_loans(aadhaar_no)
+    recent_transactions = fetch_transactions(customer)
+    customer_loans = fetch_loans(customer)
 
     context = {
         'customer': customer,
@@ -310,72 +289,36 @@ def transactions_list(request):
     return render(request, 'bank/transactions.html', {'transactions': transactions_out})
 
 def create_account(request):
-    """Create a new account using stored procedure and Django User auth."""
     message = None
     error = None
 
     if request.method == 'POST':
-        aadhaar = request.POST.get('aadhaar_no', '').strip()      # matches form's name="aadhaar_no"
-        account_no = request.POST.get('username', '').strip()     # matches form's name="username"
-        initial = request.POST.get('initial', '0').strip()        # form doesn't have initial, defaults to 0
-        password = request.POST.get('password', '').strip()
-        created_by = request.POST.get('created_by', 'System').strip()
+        name = request.POST.get('name')
+        dob = request.POST.get('dob')
+        aadhaar_no = request.POST.get('aadhaar_no')
+        phone = request.POST.get('phone')
+        address = request.POST.get('address')
 
-        # Validate Aadhaar and account_no inputs before proceeding
-        if not aadhaar:
-            error = "Aadhaar number is required."
-        elif not account_no:
-            error = "Username (Account number) is required."
+        if Customer.objects.filter(aadhaar_no=aadhaar_no).exists():
+            error = "A customer with this Aadhaar already exists!"
         else:
-            try:
-                # Call your stored procedure (make sure it handles duplicate checks)
-                sp_create_account(aadhaar, account_no, float(initial), created_by)
-
-                # Create or get Customer based on Aadhaar number (likely your PK)
-                customer, created = Customer.objects.get_or_create(aadhaar_no=aadhaar)
-                if password:
-                    # Create Django User if it doesn't exist
-                    user, user_created = User.objects.get_or_create(username=account_no)
-                    if user_created:
-                        user.set_password(password)
-                        user.save()
-                    # Link the Customer to this User
-                    customer.user = user
-                    customer.save()
-
-                message = f"Account {account_no} created successfully!"
-            except Exception as e:
-                error = f"Error: {str(e)}"
+            customer = Customer.objects.create(
+                name=name, dob=dob, aadhaar_no=aadhaar_no,
+                phone=phone, address=address
+            )
+            Account.objects.create(customer=customer, balance=0.0)  # auto account number
+            message = "Account created successfully!"
 
     return render(request, 'bank/create_account.html', {'message': message, 'error': error})
 
+
 def close_account(request, account_no):
-    """Close an account: GET shows form, POST calls sp_close_account."""
-    message = None
-    error = None
+    """Close an account: shows confirmation and calls stored procedure on POST."""
+    aadhaar_no = request.session.get('aadhaar_no')
+    if not aadhaar_no:
+        return redirect('login')
 
-    # Get all other open accounts for transfer options
-    accounts = Account.objects.filter(is_closed=False).exclude(account_no=account_no).values_list('account_no', flat=True)
-
-    if request.method == 'POST':
-        transfer_to = request.POST.get('transfer_to')
-        closed_by = request.user.username if request.user.is_authenticated else 'admin'
-
-        result = sp_close_account(account_no, transfer_to, closed_by)
-
-        if result['success']:
-            message = result['message']
-        else:
-            error = result['message']
-
-    return render(request, 'bank/close_account.html', {
-        'account_no': account_no,
-        'accounts': accounts,
-        'message': message,
-        'error': error
-    })
-
-    # check ownership (ORM or legacy mapping)
+    # ownership check (ORM or legacy mapping)
     def is_owned(a_no, aad):
         try:
             if Account.objects.filter(account_no=a_no, customer__aadhaar_no=aad).exists():
@@ -393,27 +336,11 @@ def close_account(request, account_no):
         messages.error(request, 'You do not own this account.')
         return redirect('dashboard')
 
-    if request.method == 'POST':
-        transfer_to = request.POST.get('transfer_to') or ''
-        try:
-            with connection.cursor() as cursor:
-                cursor.callproc('sp_close_account', [account_no, transfer_to, aadhaar_no])
-                try:
-                    while cursor.nextset():
-                        pass
-                except Exception:
-                    pass
-            messages.success(request, 'Account closed successfully.')
-            return redirect('dashboard')
-        except DatabaseError as db_err:
-            messages.error(request, f'Error closing account: {db_err}')
-            return redirect('dashboard')
-
-    # GET: show confirmation and possible transfer targets (other accounts of owner)
+    # prepare transfer options (other open accounts)
     accounts = []
     try:
         for a in Account.objects.filter(customer__aadhaar_no=aadhaar_no):
-            if a.account_no != account_no:
+            if getattr(a, 'account_no', None) and a.account_no != account_no:
                 accounts.append(a.account_no)
     except Exception:
         pass
@@ -427,6 +354,20 @@ def close_account(request, account_no):
                     accounts.append(r[0])
     except Exception:
         pass
+
+    if request.method == 'POST':
+        transfer_to = request.POST.get('transfer_to') or ''
+        closed_by = request.user.username if request.user.is_authenticated else aadhaar_no
+        try:
+            result = sp_close_account(account_no, transfer_to, closed_by)
+            if result.get('success'):
+                messages.success(request, result.get('message', 'Account closed'))
+            else:
+                messages.error(request, result.get('message', 'Failed to close account'))
+            return redirect('dashboard')
+        except DatabaseError as db_err:
+            messages.error(request, f'Error closing account: {db_err}')
+            return redirect('dashboard')
 
     return render(request, 'bank/close_account.html', {'account_no': account_no, 'accounts': accounts})
 
@@ -546,7 +487,8 @@ def reconcile_account(request, account_no):
     if request.method == 'POST':
         fix_flag = 1 if request.POST.get('fix') == '1' else 0
         try:
-            result = reconcile_account_service(account_no, fix_flag)
+            # use service wrapper which calls stored procedure
+            result = sp_reconcile_account(account_no, fix_flag)
 
             # fetch last audit if available
             with connection.cursor() as cursor:
@@ -724,6 +666,12 @@ def perform_transaction(request):
                     pass
             except Exception:
                 pass
+        # ensure the DB connection commits any changes the stored procedure made
+        try:
+            connection.commit()
+        except Exception:
+            # some DB backends manage autocommit differently; ignore if not available
+            pass
         messages.success(request, f'{p_type} of {amount:.2f} processed successfully.')
     except Exception as e:
         # show the database error message if available
