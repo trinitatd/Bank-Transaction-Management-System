@@ -315,33 +315,39 @@ def create_account(request):
     error = None
 
     if request.method == 'POST':
-        aadhaar = request.POST.get('aadhaar')
-        account_no = request.POST.get('account_no')
-        initial = request.POST.get('initial') or '0'
-        password = request.POST.get('password')
-        created_by = request.POST.get('created_by', 'System')
+        aadhaar = request.POST.get('aadhaar_no', '').strip()      # matches form's name="aadhaar_no"
+        account_no = request.POST.get('username', '').strip()     # matches form's name="username"
+        initial = request.POST.get('initial', '0').strip()        # form doesn't have initial, defaults to 0
+        password = request.POST.get('password', '').strip()
+        created_by = request.POST.get('created_by', 'System').strip()
 
-        try:
-            # Call stored procedure to create account
-            sp_create_account(aadhaar, account_no, float(initial), created_by)
+        # Validate Aadhaar and account_no inputs before proceeding
+        if not aadhaar:
+            error = "Aadhaar number is required."
+        elif not account_no:
+            error = "Username (Account number) is required."
+        else:
+            try:
+                # Call your stored procedure (make sure it handles duplicate checks)
+                sp_create_account(aadhaar, account_no, float(initial), created_by)
 
-            # Ensure Customer exists
-            customer, created = Customer.objects.get_or_create(aadhaar_no=aadhaar)
-            if password:
-                # Create Django User if not exists
-                user, user_created = User.objects.get_or_create(username=aadhaar)
-                if user_created:
-                    user.set_password(password)
-                    user.save()
-                customer.user = user
-                customer.save()
+                # Create or get Customer based on Aadhaar number (likely your PK)
+                customer, created = Customer.objects.get_or_create(aadhaar_no=aadhaar)
+                if password:
+                    # Create Django User if it doesn't exist
+                    user, user_created = User.objects.get_or_create(username=account_no)
+                    if user_created:
+                        user.set_password(password)
+                        user.save()
+                    # Link the Customer to this User
+                    customer.user = user
+                    customer.save()
 
-            message = f"Account {account_no} created successfully!"
-        except Exception as e:
-            error = str(e)
+                message = f"Account {account_no} created successfully!"
+            except Exception as e:
+                error = f"Error: {str(e)}"
 
-    return render(request, 'bank/create_account.html', {'message': message, 'error': error})  
-
+    return render(request, 'bank/create_account.html', {'message': message, 'error': error})
 
 def close_account(request, account_no):
     """Close an account: GET shows form, POST calls sp_close_account."""

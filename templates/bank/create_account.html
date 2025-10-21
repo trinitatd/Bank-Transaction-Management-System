@@ -32,6 +32,13 @@
         {% csrf_token %}
 
         <div class="mb-4">
+          <label for="aadhaar_no" class="form-label fw-semibold">Aadhaar Number</label>
+          <input id="aadhaar_no" name="aadhaar_no" class="form-control form-control-lg"
+                 required placeholder="Enter your Aadhaar number"
+                 style="height: 60px; font-size: 1.1rem; border-radius: 14px;">
+        </div>
+
+        <div class="mb-4">
           <label for="username" class="form-label fw-semibold">Username</label>
           <input id="username" name="username" class="form-control form-control-lg"
                  required placeholder="Create a username"

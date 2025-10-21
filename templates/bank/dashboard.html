@@ -4,11 +4,13 @@
 <div class="card">
     <h2>Welcome, {{ customer.name }}</h2>
     <p class="muted">Aadhaar: {{ customer.aadhaar_no }} | Phone: {{ customer_phone|default:customer.phone }}</p>
+
     <div style="display:flex;gap:12px;margin-top:12px">
         <div style="flex:1" class="card">
             <h4>Total Balance</h4>
             <div style="font-size:22px">₹{{ total_balance }}</div>
             <div class="muted">Accounts: {{ accounts|length }}</div>
+
             <div style="margin-top:8px">
                 <strong>Accounts</strong>
                 <ul>
@@ -22,11 +24,13 @@
                         <li>No accounts</li>
                     {% endfor %}
                 </ul>
+
                 <div style="margin-top:8px">
                     <a class="btn" href="{% url 'my_transactions' %}">Transactions</a>
                 </div>
             </div>
         </div>
+
         <div style="flex:2" class="card">
             <h4>Recent Transactions</h4>
             <table>
@@ -53,19 +57,24 @@
         </div>
     </div>
 </div>
-<!--MYCopilot ranout of space try to fix this-->
-<!--ss="card">
+
+<!-- ✅ Fixed Loans section -->
+<div class="card" style="margin-top:20px">
     <h3>Loans</h3>
     <ul>
         {% for cl in customer_loans %}
             <li>
                 {{ cl.loan.type }} — ₹{{ cl.loan.amount }} ({{ cl.role }})
-                <a class="btn btn-sm btn-primary" href="{% url 'pay_loan' cl.loan.loan_no %}" style="margin-left:8px">Pay</a>
+                {% if cl.loan.loan_no %}
+                    <a class="btn btn-sm btn-primary" href="{% url 'pay_loan' cl.loan.loan_no %}" style="margin-left:8px">Pay</a>
+                {% else %}
+                    <span class="text-muted" style="margin-left:8px">No Loan No</span>
+                {% endif %}
             </li>
         {% empty %}
             <li>No loans</li>
         {% endfor %}
     </ul>
-</div>-->
-
+</div>
 {% endblock %}
+
